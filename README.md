@@ -4,9 +4,10 @@ A Claude Code mod that turns your rough prompt into a clear, specific one **befo
 
 ## Use it
 
-- **Button**: type a rough prompt, then click **✨ Prompt Master** in the band just above the prompt box (or focus the band with `ctrl+x tab` and press `p`). Your draft is replaced with the improved version. Review it and press Enter to send.
+- **Prompt Master pane** (every surface, including the web and mobile apps, where it lives in the **Mods** sheet): type your rough prompt in the box and press **✨ Prompt Master**. Then **Send it**, or **Put in prompt box** to edit first.
+- **Button above the prompt** (terminal and desktop app only): type a rough prompt, then click **✨ Prompt Master** in the band just above the prompt box (or focus the band with `ctrl+x tab` and press `p`). Your draft is replaced with the improved version. Review it and press Enter to send.
 - **Undo**: not happy? Click **Undo** (`u`) to get your original draft back.
-- **Slash command**: `/prompt-master` rewrites whatever is in your prompt box. It works on every surface, including mobile, where the band isn't shown.
+- **Slash command**: `/prompt-master <rough prompt>` rewrites the text you give it; plain `/prompt-master` rewrites what's in your prompt box.
 
 Nothing is sent automatically. You always see the rewrite first. If the rewrite fails, your draft is left untouched.
 
@@ -23,6 +24,6 @@ It keeps your intent and every concrete detail (names, paths, code, numbers), pu
 ## Layout
 
 - `.claude-plugin/plugin.json`: manifest
-- `hooks/register.tsx`: the hooks module (band button, `/prompt-master`, rewrite logic)
+- `hooks/register.tsx`: the hooks module (pane, band button, `/prompt-master`, rewrite logic)
 - `types/index.d.ts`: the mod's state contract
 - `tests/`: `claude plugin test .`

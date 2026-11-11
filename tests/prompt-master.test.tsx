@@ -63,3 +63,45 @@ test('a failed rewrite leaves the draft alone', async ($, on) => {
   expect((await ui.find({ type: 'Text', text: /failed/ }))?.text).toContain('unchanged')
   await ui.unmount()
 })
+
+const PANE = {
+  plugin: 'prompt-master',
+  component: 'Pane',
+  requestId: 'prompt-master',
+  props: {
+    title: '✨ Prompt Master',
+    isFocused: false,
+    bodyColumns: 40,
+    placement: 'dock',
+    scroll: { offset: 0, bodyRows: 20 },
+    view: {},
+  },
+} as const
+
+test('the pane rewrites what was typed in it and sends it, on mobile too', async ($, on) => {
+  let sent = ''
+  on('prompt.read', () => ({ value: { text: '', cursor: 0 } }))
+  on('model.complete', (_, e) => ({
+    value: {
+      isAnswered: true,
+      text: e.prompt.includes('make it fast') ? 'Please speed up the page load.' : '?',
+      usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    },
+  }))
+  on('prompt.submit', (_, e) => {
+    sent = e.text
+    return { text: e.text }
+  })
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  for (const surface of ['mobile', 'desktop'] as const) {
+    sent = ''
+    const ui = await $.ui.mount({ ...PANE, surface })
+    await ui.input({ key: 'rough', text: 'make it fast' })
+    expect((await ui.find({ type: 'Text', text: /speed up/ }))?.text).toBe('Please speed up the page load.')
+    await ui.press({ key: 'send' })
+    expect(sent).toBe('Please speed up the page load.')
+    await ui.unmount()
+  }
+})
