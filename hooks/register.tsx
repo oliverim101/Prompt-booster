@@ -101,35 +101,12 @@ function openPane($: EngineInterface) {
   return $.ui.open({ id: PANE, title: '✨ Prompt Master' })
 }
 
-// Diagnostics: which apps attached and what opening the pane came to.
-const attached: string[] = []
-let lastOpen = 'not opened yet'
-
-async function open($: EngineInterface, why: string) {
-  const r = await openPane($)
-  lastOpen = `${why}: ${r.isPlaced ? 'placed' : `not placed (${r.reason})`}`
+async function open($: EngineInterface) {
+  await openPane($)
 }
 
 export const register: Register = on => {
-  on('session.attach', async ($, e, next) => {
-    attached.push(`${e.surface} (${e.clientId})`)
-    return next(e)
-  })
-
-  on('tool.call', { tool: 'mcp__prompt-master__status' }, async $ => {
-    const panes = await $.ui.panes()
-    return {
-      result: JSON.stringify({ loaded: true, attachedSinceLoad: attached, lastOpen, panes }, null, 2),
-    }
-  })
-
   on('session.start', async ($, e, next) => {
-    await $.tool.register({
-      name: 'status',
-      description: 'Prompt Master diagnostics: attached apps, pane placement.',
-      inputSchema: { type: 'object', properties: {} },
-      isDeferred: false,
-    })
     await $.command.register({
       name: 'prompt-master',
       description: 'Rewrite a rough prompt into a better one: /prompt-master <rough prompt>, or your current draft',
@@ -138,7 +115,7 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'prompt-master' }, async ($, e) => {
-    void open($, 'on /prompt-master')
+    void open($)
     const typed = e.args.trim()
     if (typed) {
       await update($, rough, () => typed)
