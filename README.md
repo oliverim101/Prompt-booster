@@ -12,6 +12,12 @@ A Claude Code mod that turns your rough prompt into a clear, specific one **befo
 
 With the button, pane and `/prompt-master`, nothing is sent automatically: you see the rewrite first. If the rewrite fails, your draft is left untouched.
 
+## See it
+
+| Before | After one click |
+| --- | --- |
+| ![Rough draft](docs/prompt-master-before.png) | ![Rewritten draft](docs/prompt-master-after.png) |
+
 ## What the rewrite does
 
 It keeps your intent and every concrete detail (names, paths, code, numbers), puts the goal first, adds the context, constraints and what a good result looks like, fixes grammar, and stays short when your ask is short. It never invents requirements. The rewrite is a single completion on the `sonnet` model, billed to your session's credentials like any other request.

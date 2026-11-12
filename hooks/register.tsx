@@ -113,9 +113,7 @@ async function open($: EngineInterface, why: string) {
 export const register: Register = on => {
   on('session.attach', async ($, e, next) => {
     attached.push(`${e.surface} (${e.clientId})`)
-    const r = await next(e)
-    void open($, `on attach of ${e.surface}`)
-    return r
+    return next(e)
   })
 
   on('tool.call', { tool: 'mcp__prompt-master__status' }, async $ => {
@@ -136,7 +134,6 @@ export const register: Register = on => {
       name: 'prompt-master',
       description: 'Rewrite a rough prompt into a better one: /prompt-master <rough prompt>, or your current draft',
     })
-    void open($, 'on session start')
     return next(e)
   })
 
@@ -273,7 +270,7 @@ export const register: Register = on => {
         {before !== null && s === 'done' && (
           <Button key="undo" label="Undo" hotkey="u" dimColor onPress={undo} />
         )}
-        <Text dimColor>{note ?? 'Type a rough prompt, then click to rewrite it'}</Text>
+        <Text dimColor>{note ?? 'rewrite your draft'}</Text>
       </Box>
     )
   })
