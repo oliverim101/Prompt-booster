@@ -105,3 +105,37 @@ test('the pane rewrites what was typed in it and sends it, on mobile too', async
     await ui.unmount()
   }
 })
+
+const USAGE = { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+
+test('a message starting with pm: is rewritten before it is sent', async ($, on) => {
+  let reached = ''
+  on('model.complete', (_, e) => ({
+    value: { isAnswered: true, text: e.prompt.includes('login broke') ? 'Please fix the broken login.' : '?', usage: USAGE },
+  }))
+  on('prompt.submit', (_, e) => {
+    reached = e.text
+    return { text: e.text }
+  })
+  on('ui.status', () => ({ value: undefined }))
+
+  await $.prompt.submit({ text: 'PM: login broke' })
+  expect(reached).toBe('Please fix the broken login.')
+
+  await $.prompt.submit({ text: 'just a normal message' })
+  expect(reached).toBe('just a normal message')
+})
+
+test('a failed pm: rewrite sends the message as typed', async ($, on) => {
+  let reached = ''
+  on('model.complete', () => ({ value: { isAnswered: false, reason: 'empty-reply', usage: USAGE } }))
+  on('prompt.submit', (_, e) => {
+    reached = e.text
+    return { text: e.text }
+  })
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+
+  await $.prompt.submit({ text: 'pm: login broke' })
+  expect(reached).toBe('login broke')
+})

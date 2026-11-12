@@ -30,6 +30,28 @@ function clean(text: string): string {
   return t
 }
 
+const PREFIX = /^\s*pm:/i
+
+function complete($: EngineInterface, text: string) {
+  return $.model.complete({
+    model: 'sonnet',
+    system: SYSTEM,
+    prompt: `Rough prompt to rewrite:\n<rough_prompt>\n${text}\n</rough_prompt>`,
+    maxTokens: 2048,
+    effort: 'low',
+    timeoutMs: 60000,
+  })
+}
+
+/** The rewrite of `text`, or null when the model gave none. */
+async function improve($: EngineInterface, text: string): Promise<string | null> {
+  $.ui.status('✨ Prompt Master: rewriting…')
+  const r = await complete($, text)
+  $.ui.status(undefined)
+  if (!r.isAnswered) return null
+  return clean(r.text) || null
+}
+
 /**
  * Rewrites `draft`; the result is kept for the pane and, with `fill`, put in
  * the prompt box over the draft (Undo restores it).
@@ -47,14 +69,7 @@ async function master($: EngineInterface, draft: string, fill: boolean): Promise
   await update($, message, () => 'Rewriting…')
   $.ui.status('✨ Prompt Master: rewriting…')
 
-  const r = await $.model.complete({
-    model: 'sonnet',
-    system: SYSTEM,
-    prompt: `Rough prompt to rewrite:\n<rough_prompt>\n${text}\n</rough_prompt>`,
-    maxTokens: 2048,
-    effort: 'low',
-    timeoutMs: 60000,
-  })
+  const r = await complete($, text)
   $.ui.status(undefined)
 
   if (!r.isAnswered || !clean(r.text)) {
@@ -79,25 +94,54 @@ async function master($: EngineInterface, draft: string, fill: boolean): Promise
     }
   }
   await update($, message, () => 'Rewritten. Send it, or put it in your prompt box.')
-  return `✨ Improved prompt:\n\n${better}`
+  return `✨ Improved prompt:\n\n${better}\n\n→ To rewrite and send in one step, start a message with pm:`
 }
 
 function openPane($: EngineInterface) {
   return $.ui.open({ id: PANE, title: '✨ Prompt Master' })
 }
 
+// Diagnostics: which apps attached and what opening the pane came to.
+const attached: string[] = []
+let lastOpen = 'not opened yet'
+
+async function open($: EngineInterface, why: string) {
+  const r = await openPane($)
+  lastOpen = `${why}: ${r.isPlaced ? 'placed' : `not placed (${r.reason})`}`
+}
+
 export const register: Register = on => {
+  on('session.attach', async ($, e, next) => {
+    attached.push(`${e.surface} (${e.clientId})`)
+    const r = await next(e)
+    void open($, `on attach of ${e.surface}`)
+    return r
+  })
+
+  on('tool.call', { tool: 'mcp__prompt-master__status' }, async $ => {
+    const panes = await $.ui.panes()
+    return {
+      result: JSON.stringify({ loaded: true, attachedSinceLoad: attached, lastOpen, panes }, null, 2),
+    }
+  })
+
   on('session.start', async ($, e, next) => {
+    await $.tool.register({
+      name: 'status',
+      description: 'Prompt Master diagnostics: attached apps, pane placement.',
+      inputSchema: { type: 'object', properties: {} },
+      isDeferred: false,
+    })
     await $.command.register({
       name: 'prompt-master',
       description: 'Rewrite a rough prompt into a better one: /prompt-master <rough prompt>, or your current draft',
     })
-    void openPane($)
+    void open($, 'on session start')
     return next(e)
   })
 
   on('command.run', { command: 'prompt-master' }, async ($, e) => {
-    void openPane($)
+    void open($, 'on /prompt-master')
     const typed = e.args.trim()
     if (typed) {
       await update($, rough, () => typed)
@@ -107,14 +151,25 @@ export const register: Register = on => {
     return { text: await master($, box.text, true) }
   })
 
-  // After sending, reset the band.
+  // One step, any app: a message starting with "pm:" is rewritten before
+  // Claude reads it. If the rewrite fails, the message goes as typed.
   on('prompt.submit', async ($, e, next) => {
     if ((await read($, status)) !== 'working') {
       await update($, status, () => 'idle')
       await update($, message, () => null)
       await update($, original, () => null)
     }
-    return next(e)
+    const m = PREFIX.exec(e.text)
+    if (!m || e.command || e.isMeta || e.origin?.kind === 'plugin') return next(e)
+
+    const text = e.text.slice(m[0].length).trim()
+    if (!text) return next(e)
+    const better = await improve($, text)
+    if (better === null) {
+      $.ui.toast('Prompt Master: rewrite failed, sending as typed')
+      return next({ ...e, text })
+    }
+    return next({ ...e, text: better })
   })
 
   // The pane: works on every surface, including the mobile and web apps' Mods sheet.
